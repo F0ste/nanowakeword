@@ -264,6 +264,17 @@ def _kokoro_synthesize(
         return None
 
 
+def _save_text_alongside(output_dir: str, wav_filename: str, text: str):
+    """Save the synthesized text as a .txt file alongside the .wav file."""
+    txt_filename = wav_filename.replace(".wav", ".txt")
+    txt_path = os.path.join(output_dir, txt_filename)
+    try:
+        with open(txt_path, "w", encoding="utf-8") as f:
+            f.write(text)
+    except Exception as e:
+        _LOGGER.warning(f"Failed to save text file for '{wav_filename}': {e}")
+
+
 def generate_samples(
     text: Union[str, List[str]],
     output_dir: str,
@@ -425,6 +436,8 @@ def generate_samples(
                 wf.setnchannels(1); wf.setsampwidth(2); wf.setframerate(TARGET_SAMPLE_RATE)
                 wf.writeframes(audio_array_clean.tobytes())
 
+            _save_text_alongside(output_dir, out_filename, prompt)
+
         except Exception as e:
             _LOGGER.error(f"Error on sample {i} ('{prompt}'): {e}\n{traceback.format_exc()}")
 
@@ -515,6 +528,8 @@ def _generate_aliyun_tts(
                 wf.setnchannels(1); wf.setsampwidth(2); wf.setframerate(target_sr)
                 wf.writeframes(audio_array.tobytes())
 
+            _save_text_alongside(output_dir, out_filename, prompt)
+
         except Exception as e:
             _LOGGER.error(f"Error on sample {i} ('{prompt}'): {e}\n{traceback.format_exc()}")
 
@@ -577,6 +592,8 @@ def _generate_kokoro(
             with wave.open(os.path.join(output_dir, out_filename), "wb") as wf:
                 wf.setnchannels(1); wf.setsampwidth(2); wf.setframerate(target_sr)
                 wf.writeframes(audio_int16.tobytes())
+
+            _save_text_alongside(output_dir, out_filename, prompt)
 
         except Exception as e:
             _LOGGER.error(f"Error on sample {i} ('{prompt}'): {e}\n{traceback.format_exc()}")

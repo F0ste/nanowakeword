@@ -1,0 +1,44 @@
+负样本的生成文本源主要在 config_multilang.yaml 中定义，有以下几类：
+1. 词级别对抗负样本 (auto_adversarial)
+- 配置位置: config_multilang.yaml:97-105
+- 生成方式: 取 wake word（如 hello Ava），查 CMU 发音词典，找到发音相似但不同的词替换（如 hallo Ava, helo Avva），然后用 Piper TTS 合成语音
+- 脚本: nanowakeword/data/generator/adversarial_texts.py:102
+2. 音素级对抗负样本 (phoneme_adversarial)
+- 配置位置: config_multilang.yaml:116-124
+- 生成方式: 将 wake word 转为音素序列，用音素替换表随机替换 35%-60% 的音素，生成无意义的发音串（如 EHAHRKVASDF），TTS 合成后听起来很像 wake word 但不是真实词语
+- 脚本: adversarial_texts.py:333
+3. 自定义短语 (from_list)
+- 手动列出的相似但错误的短语，如 你好饭店, 泥好酒店 等
+4. 背景噪声 (b) + 通用语音 (AE28H_float32)
+- 预录的背景噪声（SonicWeave-v2, RACON_11h）和通用语音
+核心问题：当前负样本都是 TTS 合成的英文近音词/无意义音素串，没有真实环境噪音（键盘声、电器声、电视声等）和真实对话语音作为负样本。
+要看当前实际生成了什么词，可以查看生成的 clip 文件名：
+Get-ChildItem -LiteralPath "data/negative" | Select-Object -First 30 Name
+Get-ChildItem -LiteralPath "data/negative_phoneme" | Select-Object -First 30 Name
+
+
+正样本的生成很简单，就是固定的 wake word 短语，通过 TTS 反复合成。
+
+
+框架说明：
+整个框架 4 阶段流水线，由 cli.py 入口 + config_multilang.yaml 控制：
+Stage 1: generate_clips — 合成音频
+- 正样本：固定 wake word（如 hello Ava），用 Piper TTS 换不同 speaker/语速/音调循环合成
+- 负样本：auto_adversarial 查 CMU 词典找近音词替换，或 phoneme_adversarial 随机替换音素生成无意义串，同样 TTS 合成
+- 输出：.wav 文件到 data/positive/、data/negative/ 等目录
+Stage 2: transform_clips — 特征提取 + 增强
+- 加载 wav → 混背景噪声（SonicWeave-v2，随机 SNR）→ 增益/音调偏移 → 提取 mel-spectrogram 特征（Google speech_embedding ONNX）
+- 每段音频按 augmentation_rounds（如 10x）生成多个变体
+- 输出：.npy 特征文件到 trained_models/<name>/features/
+Stage 3: train_model — 模型训练
+- DynamicClassAwareSampler 按配置的 batch 配比采样（如 t:60 b:90 hn:20 n:100 AE28H:100）
+- 正样本标签 1.0，其他全 0.0
+- BiasWeightedLoss（bias=0.65）让负样本占 65% 的 loss 权重
+- 输出：PyTorch 模型 checkpoint
+Stage 4: distill — 蒸馏为轻量模型
+- 将训练好的模型压缩为量化/精简版，用于嵌入式部署
+配置文件核心结构
+data_generation_tasks:    # Stage 1 — 各语言正/负样本的文本源 + 数量
+feature_generation_manifest:  # Stage 2 — 哪些目录做增强 + 增强轮数
+batch_composition:        # Stage 3 — 每轮训练正负样本配比
+feature_manifest:         # Stage 3 — 预置背景噪声/通用语音数据集

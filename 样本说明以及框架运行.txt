@@ -42,3 +42,23 @@ data_generation_tasks:    # Stage 1 — 各语言正/负样本的文本源 + 数
 feature_generation_manifest:  # Stage 2 — 哪些目录做增强 + 增强轮数
 batch_composition:        # Stage 3 — 每轮训练正负样本配比
 feature_manifest:         # Stage 3 — 预置背景噪声/通用语音数据集
+
+# 完整流水线（一键全跑）
+nanowakeword -c config_multilang.yaml -G -t -T -d
+
+# 分阶段跑
+nanowakeword -c config_multilang.yaml -G      # 1. 生成合成音频
+nanowakeword -c config_multilang.yaml -t      # 2. 特征提取+增强
+nanowakeword -c config_multilang.yaml -T      # 3. 训练模型
+nanowakeword -c config_multilang.yaml -d      # 4. 蒸馏轻量模型
+
+# 如果 config.yaml 里 pipeline 开关已设为 true，直接：
+nanowakeword -c config_multilang.yaml
+
+# 断点续训
+nanowakeword -c config_multilang.yaml -T --resume ./trained_models/my_model
+
+# 启动推理服务
+nanowakeword --model my_model.onnx --pipeline full
+也可以直接用 Python：
+python -m nanowakeword -c config_multilang.yaml -G -t -T -d

@@ -1,0 +1,198 @@
+# config_multilang.yaml
+# 多语言唤醒词训练 — hi hotel / 你好酒店 / 你好酒店(粤) / 안녕 호텔(韩)
+model_name: "hi_hotel_multilang_v1"
+output_dir: "./trained_models"
+
+positive_data_path: "./data/positive"
+negative_data_path: "./data/negative"
+
+background_paths:
+  - "SonicWeave-v2/part1"
+  - "SonicWeave-v2/part2"
+  - "SonicWeave-v2/part3"
+rir_paths: []
+
+model_type: "dnn"
+layer_size: 48
+n_blocks: 4
+embedding_dim: 128
+dropout_prob: 0.35
+
+steps: 50000
+stabilization_steps: 20000
+
+optimizer_type: "adamw"
+learning_rate_max: 0.0008
+lr_scheduler_type: "onecycle"
+weight_decay: 0.01
+
+batch_composition:
+  t: 60
+  b: 90
+  hn: 20
+  n: 100
+  AE28H_float32: 100
+
+feature_manifest:
+  targets:
+    t: "./trained_models/hi_hotel_multilang_v1/features/positive_features.npy"
+  negatives:
+    AE28H_float32: "AE29H_float32.npy"
+    b: "RACON_11h_v1.npy"
+    n: "./trained_models/hi_hotel_multilang_v1/features/negative_features.npy"
+    hn: "./trained_models/hi_hotel_multilang_v1/features/hard_negative_features.npy"
+  targets_val:
+    t_v: "./trained_models/hi_hotel_multilang_v1/features/positive_features_val.npy"
+  negatives_val:
+    bv: "RACON_11h_v1.npy"
+
+data_generation_tasks:
+  # ===== 正样本：4 语种全部输出到 data/positive/ =====
+  - name: "EN Positive"
+    enabled: true
+    output_dir: "data/positive"
+    num_samples: 1500
+    file_prefix: "en_pos"
+    text_source:
+      type: "fixed_phrase"
+      phrase: "hello Ava"
+
+  - name: "ZH Positive"
+    enabled: false
+    output_dir: "data/positive"
+    num_samples: 1500
+    file_prefix: "zh_pos"
+    text_source:
+      type: "fixed_phrase"
+      phrase: "你好酒店"
+    tts_settings:
+      models: "zh_CN-huayan-medium"
+
+  - name: "YUE Positive"
+    enabled: false
+    output_dir: "data/positive"
+    num_samples: 1500
+    file_prefix: "yue_pos"
+    text_source:
+      type: "fixed_phrase"
+      phrase: "你好酒店"
+    tts_settings:
+      engine: "aliyun_tts"
+      lang_code: "yue"
+      voice: "Kiki"
+
+  - name: "KO Positive"
+    enabled: false
+    output_dir: "data/positive"
+    num_samples: 1500
+    file_prefix: "ko_pos"
+    text_source:
+      type: "fixed_phrase"
+      phrase: "안녕 호텔"
+    tts_settings:
+      engine: "aliyun_tts"
+      lang_code: "ko"
+      voice: "Sohee"
+
+  # ===== 负样本：全部输出到 data/negative/ =====
+  - name: "EN Adversarial"
+    enabled: true
+    output_dir: "data/negative"
+    num_samples: 3000
+    file_prefix: "neg_adv_en"
+    text_source:
+      type: "auto_adversarial"
+      base_phrase: "hello Ava"
+
+  - name: "EN Phoneme Hard"
+    enabled: true
+    output_dir: "data/negative_phoneme"
+    num_samples: 1500
+    file_prefix: "neg_ph_en"
+    text_source:
+      type: "phoneme_adversarial"
+      base_phrase: "hello Ava"
+      min_distance: 0.3
+
+  - name: "ZH Negatives"
+    enabled: false
+    output_dir: "data/negative"
+    num_samples: 200
+    file_prefix: "neg_zh"
+    text_source:
+      type: "from_list"
+      phrases:
+        - "你好饭店"
+        - "泥好酒店"
+        - "你豪酒店"
+        - "你好酒家"
+        - "您好酒店"
+      repeat_each: 40
+    tts_settings:
+      models: "zh_CN-huayan-medium"
+
+  - name: "YUE Negatives"
+    enabled: false
+    output_dir: "data/negative"
+    num_samples: 200
+    file_prefix: "neg_yue"
+    text_source:
+      type: "from_list"
+      phrases:
+        - "你好饭店"
+        - "泥好酒店"
+        - "你豪酒店"
+        - "你好酒家"
+      repeat_each: 50
+    tts_settings:
+      engine: "aliyun_tts"
+      lang_code: "yue"
+
+  - name: "KO Negatives"
+    enabled: false
+    output_dir: "data/negative"
+    num_samples: 200
+    file_prefix: "neg_ko"
+    text_source:
+      type: "from_list"
+      phrases:
+        - "안녕하세요 호텔"
+        - "안녕 모텔"
+        - "안영 호텔"
+        - "안녕 호떨"
+      repeat_each: 50
+    tts_settings:
+      engine: "aliyun_tts"
+      lang_code: "ko"
+
+feature_generation_manifest:
+  pos_feature:
+    input_audio_dirs: ["./data/positive"]
+    output_filename: "positive_features.npy"
+    use_background_noise: true
+    augmentation_rounds: 10
+  neg_feature_1:
+    input_audio_dirs: ["./data/negative"]
+    output_filename: "negative_features.npy"
+    use_background_noise: true
+    augmentation_rounds: 10
+  neg_feature_2:
+    input_audio_dirs: ["./data/negative_phoneme"]
+    output_filename: "hard_negative_features.npy"
+    use_background_noise: true
+    augmentation_rounds: 1
+
+distillation:
+  enabled: true
+  steps: 6000
+  temperature: 4.0
+  alpha: 0.7
+  learning_rate: 0.0005
+  student_layer_size: 8
+  student_n_blocks: 1
+  student_embedding_dim: 8
+
+generate_clips: true
+transform_clips: true
+train_model: true
+overwrite: false

@@ -18,11 +18,21 @@ import sys
 import wave
 import traceback
 import random
+import io
+import time
 from pathlib import Path
 from tqdm import tqdm
 import numpy as np
 import scipy.signal as sps
 from typing import List, Optional, Union, Dict, Any
+
+# Load .env file for API keys
+try:
+    from dotenv import load_dotenv
+    _env_path = os.path.join(os.path.dirname(os.path.dirname(os.path.dirname(os.path.dirname(__file__)))), ".env")
+    load_dotenv(_env_path)
+except ImportError:
+    pass
 
 # Module-level setup 
 _LOGGER = logging.getLogger(__name__)
@@ -56,11 +66,57 @@ except ImportError:
             _LOGGER.error(f"Failed to download {url}: {e}")
             return None
 
+_PIPER_AVAILABLE = False
+_PiperVoice = _SynthesisConfig = None
 try:
-    from piper.voice import PiperVoice, SynthesisConfig
+    from piper.voice import PiperVoice as _PiperVoice, SynthesisConfig as _SynthesisConfig
+    _PIPER_AVAILABLE = True
 except ImportError:
-    _LOGGER.critical("piper-tts is not installed. Please run: pip install piper-tts")
-    sys.exit(1)
+    pass
+
+_KOKORO_AVAILABLE = False
+_KPipeline = None
+try:
+    from kokoro import KPipeline as _KPipeline
+    _KOKORO_AVAILABLE = True
+except ImportError:
+    pass
+
+_KOKORO_PIPELINE_CACHE: Dict[str, Any] = {}
+
+# Mapping from lang_code to default voice (core Kokoro v0.9.4+)
+# For languages not listed (e.g. 'k'=Korean from wrappers), user must specify a voice.
+_KOKORO_DEFAULT_VOICES = {
+    'a': 'af_heart',
+    'b': 'bf_emma',
+    'e': 'ef_dora',
+    'f': 'ff_siwis',
+    'h': 'hf_alpha',
+    'i': 'if_sara',
+    'j': 'jf_alpha',
+    'p': 'pf_dora',
+    'z': 'zf_xiaoxiao',
+}
+
+_KOKORO_SAMPLE_RATE = 24000
+
+# --- DashScope / Qwen3-TTS API ---
+_DASHSCOPE_API_KEY = os.environ.get("DASHSCOPE_API_KEY", "")
+
+_ALIYUN_LANG_MAP = {
+    "yue":        ("Cantonese", "Kiki"),
+    "cantonese":  ("Cantonese", "Kiki"),
+    "ko":         ("Korean", "Sohee"),
+    "korean":     ("Korean", "Sohee"),
+    "zh":         ("Chinese", "Cherry"),
+    "chinese":    ("Chinese", "Cherry"),
+    "en":         ("English", "Cherry"),
+    "english":    ("English", "Cherry"),
+    "ja":         ("Japanese", "Cherry"),
+    "japanese":   ("Japanese", "Cherry"),
+}
+
+_ALIYUN_MODEL = "qwen3-tts-flash"
 
 
 def _load_voice_from_path(onnx_path: Path) -> Optional[Dict[str, Any]]:
@@ -78,7 +134,7 @@ def _load_voice_from_path(onnx_path: Path) -> Optional[Dict[str, Any]]:
 
     try:
         _LOGGER.info(f"Loading TTS model: {onnx_path.name}...")
-        voice_obj = PiperVoice.load(onnx_path)
+        voice_obj = _PiperVoice.load(onnx_path)
         voice_data = {"voice": voice_obj, "path": onnx_path}
         
         num_spk_str = f" | Speakers: {voice_obj.config.num_speakers}" if voice_obj.config.num_speakers else ""
@@ -175,6 +231,39 @@ def load_voices(
     return final_voices
 
 
+def _get_kokoro_voices(lang_code: str, voice: Optional[Union[str, List[str]]] = None) -> List[str]:
+    """Resolve voice names for a Kokoro language pipeline."""
+    if voice is None:
+        default = _KOKORO_DEFAULT_VOICES.get(lang_code)
+        return [default] if default else []
+    if isinstance(voice, str):
+        return [voice]
+    return voice
+
+
+def _kokoro_synthesize(
+    text: str,
+    pipeline,
+    voice: str,
+    speed: float,
+    target_sr: int
+) -> Optional[np.ndarray]:
+    """Synthesize text with Kokoro, concatenate chunks, resample to target SR."""
+    try:
+        generator = pipeline(text, voice=voice, speed=speed)
+        chunks = [audio for _, _, audio in generator]
+        if not chunks:
+            return None
+        audio = np.concatenate(chunks).astype(np.float32)
+        if _KOKORO_SAMPLE_RATE != target_sr:
+            num_samples = int(len(audio) * target_sr / _KOKORO_SAMPLE_RATE)
+            audio = sps.resample(audio, num_samples).astype(np.float32)
+        return audio
+    except Exception as e:
+        _LOGGER.error(f"Kokoro synthesis failed for '{text[:50]}...': {e}")
+        return None
+
+
 def generate_samples(
     text: Union[str, List[str]],
     output_dir: str,
@@ -185,10 +274,14 @@ def generate_samples(
     speaker_ids: Optional[Union[int, List[int]]] = None,
     length_scales: List[float] = [1.0],
     noise_scales: List[float] = [0.667],
-    noise_w_scales: List[float] = [0.8]
+    noise_w_scales: List[float] = [0.8],
+    engine: str = "piper",
+    lang_code: str = "a",
+    voice: Optional[Union[str, List[str]]] = None,
+    speed: float = 1.0
     ):
     """
-    Generate audio files from text using Piper TTS models.
+    Generate audio files from text using Piper or Kokoro TTS engines.
 
     This function takes one or more text prompts and converts them into
     spoken audio, saving each result as a WAV file. You can control
@@ -197,47 +290,69 @@ def generate_samples(
     Parameters
     ----------
     text : str or list of str
-        The text(s) you want to turn into audio. Can be a single string
-        or a list of strings.
+        The text(s) you want to turn into audio.
     output_dir : str
         The folder where the audio files will be saved.
     max_samples : int
         Total number of audio clips to generate.
     file_prefix : str, optional
         The beginning of the filename for each audio clip (default "sample").
-    models : str, list, or dict, optional
-        Which TTS model(s) to use. Can be a model name, list of names,
-        or dictionary mapping names to file paths.
-    models_dir : str, optional
-        Folder containing your TTS model files.
-    speaker_ids : int or list of int, optional
-        If using a multi-speaker model, you can choose specific speaker ID(s).
-        If not provided, a speaker is chosen randomly.
-    length_scales : list of float, optional
-        Controls how fast or slow the speech is. Higher value = longer speech.
-    noise_scales : list of float, optional
-        Controls the amount of randomness/noise in the speech sound.
-    noise_w_scales : list of float, optional
-        Adds small variations in the waveform for more natural sound.
+    engine : str, optional
+        TTS engine to use: "piper" (default), "kokoro", or "aliyun_tts".
+
+    Piper-specific params:
+        models, models_dir, speaker_ids, length_scales, noise_scales, noise_w_scales
+
+    Kokoro-specific params:
+        lang_code : str, default "a" (see Kokoro LANG_CODES)
+        voice : str or list of str, optional
+        speed : float, default 1.0
+
+    Aliyun-TTS-specific params:
+        lang_code : str, e.g. "yue" (Cantonese), "ko" (Korean), "zh", "en", etc.
+        voice : str or list of str, optional.
+            Cantonese: "Kiki" (f), "Rocky" (m)
+            Korean: "Sohee" (f)
+            Others default to "Cherry"
+        speed : float (currently unused by API)
+        Requires DASHSCOPE_API_KEY in .env or environment.
 
     Notes
     -----
-    - The audio will be resampled to 16kHz if the model uses a different rate.
-    - Simple filters are applied automatically to make the audio smoother.
+    - The audio will be resampled to 16kHz.
     - File names include a timestamp and random number to avoid overwriting.
     - Works with single or multiple text prompts and multiple voice models.
     """
 
     import time
-    import itertools 
+
+    os.makedirs(output_dir, exist_ok=True)
+    if isinstance(text, str): text = [text]
+
+    text_prompts = (text * ((max_samples // len(text)) + 1))[:max_samples]
+    TARGET_SAMPLE_RATE = 16000
+
+    if engine == "kokoro":
+        _generate_kokoro(text_prompts, output_dir, max_samples, file_prefix,
+                         lang_code, voice, speed, TARGET_SAMPLE_RATE)
+        return
+
+    if engine == "aliyun_tts":
+        _generate_aliyun_tts(text_prompts, output_dir, max_samples, file_prefix,
+                             lang_code, voice, speed, TARGET_SAMPLE_RATE)
+        return
+
+    # --- Piper path (default) ---
+    if not _PIPER_AVAILABLE:
+        _LOGGER.critical("piper-tts is not installed. Please run: pip install piper-tts")
+        return
+
+    import itertools
 
     voices_data = load_voices(models, models_dir)
     if not voices_data:
         _LOGGER.error("Audio generation failed: No TTS models could be loaded.")
         return
-
-    os.makedirs(output_dir, exist_ok=True)
-    if isinstance(text, str): text = [text]
 
     _LOGGER.info(f"Generating {max_samples} samples using {len(voices_data)} loaded voice model(s)...")
 
@@ -247,20 +362,16 @@ def generate_samples(
         noise_scales,
         noise_w_scales
     )
-    
+
     settings_iterator = itertools.cycle(settings_product)
-    
-    text_prompts = (text * ((max_samples // len(text)) + 1))[:max_samples]
-    TARGET_SAMPLE_RATE = 16000
 
     for i, prompt in enumerate(tqdm(text_prompts, desc="Generating Audio", unit="sample")):
         try:
-            # Taking the next combination, instead of choosing randomly each time
             selected_voice_data, length_scale, noise_scale, noise_w_scale = next(settings_iterator)
-            
-            voice, voice_path = selected_voice_data["voice"], selected_voice_data["path"]
-            
-            num_speakers = voice.config.num_speakers or 0
+
+            voice_obj, voice_path = selected_voice_data["voice"], selected_voice_data["path"]
+
+            num_speakers = voice_obj.config.num_speakers or 0
             current_speaker_id = None
             if num_speakers > 1:
                 if isinstance(speaker_ids, int): current_speaker_id = speaker_ids
@@ -268,20 +379,20 @@ def generate_samples(
                 else: current_speaker_id = random.randint(0, num_speakers - 1)
                 current_speaker_id = min(current_speaker_id, num_speakers - 1)
 
-            synthesis_config = SynthesisConfig(
+            synthesis_config = _SynthesisConfig(
                 length_scale=length_scale,
                 noise_scale=noise_scale,
                 noise_w_scale=noise_w_scale,
                 speaker_id=current_speaker_id)
-            
-            audio_bytes = b"".join(chunk.audio_int16_bytes for chunk in voice.synthesize(prompt, synthesis_config))
+
+            audio_bytes = b"".join(chunk.audio_int16_bytes for chunk in voice_obj.synthesize(prompt, synthesis_config))
             if not audio_bytes: continue
-            
+
             audio_array = np.frombuffer(audio_bytes, dtype=np.int16)
-            if voice.config.sample_rate != TARGET_SAMPLE_RATE:
-                num_s = int(len(audio_array) * TARGET_SAMPLE_RATE / voice.config.sample_rate)
+            if voice_obj.config.sample_rate != TARGET_SAMPLE_RATE:
+                num_s = int(len(audio_array) * TARGET_SAMPLE_RATE / voice_obj.config.sample_rate)
                 audio_array = sps.resample(audio_array, num_s).astype(np.int16)
-            
+
             timestamp_ms = int(time.time() * 1000)
             random_num = random.randint(100, 999)
             speaker_tag = f"s{current_speaker_id}" if current_speaker_id is not None else "s0"
@@ -297,15 +408,13 @@ def generate_samples(
             try:
                 kernel_size = 3
                 filtered_audio = sps.medfilt(audio_float, kernel_size=kernel_size)
-
             except Exception as median_error:
                 _LOGGER.warning(f"There was a problem applying the Median filter: {median_error}")
-                filtered_audio = audio_float 
+                filtered_audio = audio_float
 
             try:
                 sos = sps.butter(4, 7000, 'low', fs=TARGET_SAMPLE_RATE, output='sos')
                 final_audio = sps.sosfilt(sos, filtered_audio)
-
             except Exception as butter_error:
                 _LOGGER.warning(f"There was a problem applying the Butterworth filter: {butter_error}")
                 final_audio = filtered_audio
@@ -320,6 +429,159 @@ def generate_samples(
             _LOGGER.error(f"Error on sample {i} ('{prompt}'): {e}\n{traceback.format_exc()}")
 
     _LOGGER.info("Sample generation complete.")
+
+
+def _generate_aliyun_tts(
+    text_prompts: List[str],
+    output_dir: str,
+    max_samples: int,
+    file_prefix: str,
+    lang_code: str,
+    voice: Optional[Union[str, List[str]]],
+    speed: float,
+    target_sr: int
+):
+    """Qwen3-TTS Flash generation via DashScope SDK."""
+    if not _DASHSCOPE_API_KEY:
+        _LOGGER.critical("DASHSCOPE_API_KEY not set. Add it to .env or environment.")
+        return
+
+    try:
+        import dashscope
+    except ImportError:
+        _LOGGER.critical("dashscope is not installed. Please run: pip install dashscope")
+        return
+
+    import requests
+    import itertools
+
+    lang_type, default_voice = _ALIYUN_LANG_MAP.get(
+        lang_code.lower(), ("English", "Cherry")
+    )
+
+    if voice is None:
+        voices = [default_voice]
+    elif isinstance(voice, str):
+        voices = [voice]
+    else:
+        voices = voice
+
+    voice_cycler = itertools.cycle(voices)
+
+    _LOGGER.info(f"Generating {max_samples} samples via Qwen3-TTS (lang={lang_type}, voices={voices})")
+
+    for i, prompt in enumerate(tqdm(text_prompts, desc="Generating Audio (Qwen3-TTS)", unit="sample")):
+        try:
+            current_voice = next(voice_cycler)
+
+            response = dashscope.MultiModalConversation.call(
+                model=_ALIYUN_MODEL,
+                api_key=_DASHSCOPE_API_KEY,
+                text=prompt,
+                voice=current_voice,
+                language_type=lang_type,
+                stream=False
+            )
+
+            if getattr(response, "code", None):
+                _LOGGER.error(f"API error on sample {i}: code={response.code}, msg={response.message}")
+                continue
+
+            audio_url = None
+            output = getattr(response, "output", None)
+            if output:
+                audio_info = getattr(output, "audio", None)
+                if audio_info:
+                    audio_url = getattr(audio_info, "url", None)
+            if not audio_url:
+                _LOGGER.error(f"No audio URL in response for '{prompt[:50]}...'")
+                continue
+
+            audio_resp = requests.get(audio_url, timeout=60)
+            audio_resp.raise_for_status()
+
+            audio_array = np.frombuffer(audio_resp.content, dtype=np.int16)
+
+            sample_rate = getattr(getattr(response.output, "audio", None), "sample_rate", None) or target_sr
+            if sample_rate != target_sr:
+                num_s = int(len(audio_array) * target_sr / sample_rate)
+                audio_array = sps.resample(audio_array.astype(np.float64), num_s).astype(np.int16)
+
+            timestamp_ms = int(time.time() * 1000)
+            random_num = random.randint(100, 999)
+            out_filename = f"{file_prefix}_{timestamp_ms}_{random_num}_{current_voice}.wav"
+
+            with wave.open(os.path.join(output_dir, out_filename), "wb") as wf:
+                wf.setnchannels(1); wf.setsampwidth(2); wf.setframerate(target_sr)
+                wf.writeframes(audio_array.tobytes())
+
+        except Exception as e:
+            _LOGGER.error(f"Error on sample {i} ('{prompt}'): {e}\n{traceback.format_exc()}")
+
+    _LOGGER.info("Sample generation complete (Qwen3-TTS).")
+
+
+def _generate_kokoro(
+    text_prompts: List[str],
+    output_dir: str,
+    max_samples: int,
+    file_prefix: str,
+    lang_code: str,
+    voice: Optional[Union[str, List[str]]],
+    speed: float,
+    target_sr: int
+):
+    """Kokoro TTS generation path."""
+    if not _KOKORO_AVAILABLE:
+        _LOGGER.critical("kokoro is not installed. Please run: pip install kokoro>=0.9.4")
+        return
+
+    import time
+
+    voices = _get_kokoro_voices(lang_code, voice)
+    if not voices:
+        _LOGGER.error(f"No Kokoro voices available for lang_code='{lang_code}'.")
+        return
+
+    if lang_code not in _KOKORO_PIPELINE_CACHE:
+        _LOGGER.info(f"Loading Kokoro pipeline for lang_code='{lang_code}'...")
+        try:
+            _KOKORO_PIPELINE_CACHE[lang_code] = _KPipeline(lang_code=lang_code)
+        except Exception as e:
+            _LOGGER.error(f"Failed to load Kokoro pipeline: {e}")
+            return
+
+    pipeline = _KOKORO_PIPELINE_CACHE[lang_code]
+
+    import itertools
+    voice_cycler = itertools.cycle(voices)
+    speed_variations = [speed * s for s in [0.95, 1.0, 1.05]]
+
+    _LOGGER.info(f"Generating {max_samples} samples via Kokoro (lang={lang_code}, voices={voices})")
+
+    for i, prompt in enumerate(tqdm(text_prompts, desc="Generating Audio (Kokoro)", unit="sample")):
+        try:
+            current_voice = next(voice_cycler)
+            current_speed = random.choice(speed_variations)
+
+            audio = _kokoro_synthesize(prompt, pipeline, current_voice, current_speed, target_sr)
+            if audio is None:
+                continue
+
+            audio_int16 = np.clip(audio * 32767, -32767, 32767).astype(np.int16)
+
+            timestamp_ms = int(time.time() * 1000)
+            random_num = random.randint(100, 999)
+            out_filename = f"{file_prefix}_{timestamp_ms}_{random_num}_{current_voice}.wav"
+
+            with wave.open(os.path.join(output_dir, out_filename), "wb") as wf:
+                wf.setnchannels(1); wf.setsampwidth(2); wf.setframerate(target_sr)
+                wf.writeframes(audio_int16.tobytes())
+
+        except Exception as e:
+            _LOGGER.error(f"Error on sample {i} ('{prompt}'): {e}\n{traceback.format_exc()}")
+
+    _LOGGER.info("Sample generation complete (Kokoro).")
 
 
 def main():

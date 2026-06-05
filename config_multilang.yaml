@@ -104,6 +104,15 @@ data_generation_tasks:
       type: "auto_adversarial"
       base_phrase: "hello Ava"
 
+  - name: "EN Positive Val"
+    enabled: true
+    output_dir: "data/positive_val"
+    num_samples: 400
+    file_prefix: "en_pos_val"
+    text_source:
+      type: "fixed_phrase"
+      phrase: "hello Ava"
+
   - name: "EN Phoneme Hard"
     enabled: true
     output_dir: "data/negative_phoneme"
@@ -171,6 +180,11 @@ feature_generation_manifest:
     output_filename: "positive_features.npy"
     use_background_noise: true
     augmentation_rounds: 10
+  pos_val_feature:
+    input_audio_dirs: ["./data/positive_val"]
+    output_filename: "positive_features_val.npy"
+    use_background_noise: true
+    augmentation_rounds: 1
   neg_feature_1:
     input_audio_dirs: ["./data/negative"]
     output_filename: "negative_features.npy"

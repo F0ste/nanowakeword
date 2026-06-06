@@ -66,6 +66,27 @@ except ImportError:
             _LOGGER.error(f"Failed to download {url}: {e}")
             return None
 
+# Force onnxruntime (used by Piper TTS) to prefer GPU if available
+try:
+    import onnxruntime as _ort
+    _available = _ort.get_available_providers()
+    _gpu_providers = [p for p in _available if p != 'CPUExecutionProvider']
+    if _gpu_providers:
+        _orig_inference_session = _ort.InferenceSession
+
+        def _gpu_inference_session(path_or_bytes, sess_options=None,
+                                   providers=None, provider_options=None, **kwargs):
+            if providers is None or providers == ['CPUExecutionProvider']:
+                providers = _gpu_providers + ['CPUExecutionProvider']
+                provider_options = [{} for _ in providers]
+            return _orig_inference_session(path_or_bytes, sess_options=sess_options,
+                                           providers=providers,
+                                           provider_options=provider_options, **kwargs)
+
+        _ort.InferenceSession = _gpu_inference_session
+except Exception:
+    pass
+
 _PIPER_AVAILABLE = False
 _PiperVoice = _SynthesisConfig = None
 try:

@@ -27,19 +27,17 @@ lr_scheduler_type: "onecycle"
 weight_decay: 0.01
 
 batch_composition:
-  # 1:2:2 ratio — 20% positive, 40% adversarial, 40% background
+  # 1:2:2 ratio — 20% positive, 40% adversarial, 40% background (ACAV100M)
   t: 60      # positive (20%)
   n: 100     # adversarial TTS (40%)
   hn: 20     # adversarial phoneme-hard (40%)
-  acav: 90   # background: ACAV100M (~2000 hrs speech/noise/music)
-  b: 30      # background: RACON ambient noise
+  acav: 120  # background: ACAV100M (~2000 hrs speech/noise/music)
 
 feature_manifest:
   targets:
     t: "./trained_models/hi_hotel_multilang_v1/features/positive_features.npy"
   negatives:
     acav: "openwakeword_features_ACAV100M_2000_hrs_16bit.npy"
-    b: "RACON_11h_v1.npy"
     n: "./trained_models/hi_hotel_multilang_v1/features/negative_features.npy"
     hn: "./trained_models/hi_hotel_multilang_v1/features/hard_negative_features.npy"
   targets_val:

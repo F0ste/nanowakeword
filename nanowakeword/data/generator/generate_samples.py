@@ -125,16 +125,16 @@ _KOKORO_SAMPLE_RATE = 24000
 _DASHSCOPE_API_KEY = os.environ.get("DASHSCOPE_API_KEY", "")
 
 _ALIYUN_LANG_MAP = {
-    "yue":        ("Cantonese", "Kiki"),
-    "cantonese":  ("Cantonese", "Kiki"),
-    "ko":         ("Korean", "Sohee"),
-    "korean":     ("Korean", "Sohee"),
-    "zh":         ("Chinese", "Cherry"),
-    "chinese":    ("Chinese", "Cherry"),
-    "en":         ("English", "Cherry"),
-    "english":    ("English", "Cherry"),
-    "ja":         ("Japanese", "Cherry"),
-    "japanese":   ("Japanese", "Cherry"),
+    "yue":        ("chinese", "Kiki"),
+    "cantonese":  ("chinese", "Kiki"),
+    "ko":         ("korean", "Sohee"),
+    "korean":     ("korean", "Sohee"),
+    "zh":         ("chinese", "Cherry"),
+    "chinese":    ("chinese", "Cherry"),
+    "en":         ("english", "Cherry"),
+    "english":    ("english", "Cherry"),
+    "ja":         ("japanese", "Cherry"),
+    "japanese":   ("japanese", "Cherry"),
 }
 
 _ALIYUN_MODEL = "qwen3-tts-flash"

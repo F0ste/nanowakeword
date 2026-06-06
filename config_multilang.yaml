@@ -162,7 +162,7 @@ data_generation_tasks:
     tts_settings:
       engine: "aliyun_tts"
       lang_code: "yue"
-      voice: ["Kiki", "Rocky", "Cherry", "Ethan", "Serena", "Moon", "Kai", "Bella", "Vivian"]
+      voice: ["Kiki", "Rocky"]
       speed: [0.9, 1.0, 1.1]
 
   - name: "KO Negatives"

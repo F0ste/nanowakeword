@@ -108,6 +108,7 @@ data_generation_tasks:
     text_source:
       type: "auto_adversarial"
       base_phrase: "hello Ava"
+      multi_word_prob: 0
 
   - name: "EN Positive Val"
     enabled: true

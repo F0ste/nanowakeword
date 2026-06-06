@@ -1,7 +1,12 @@
 # config_multilang.yaml
 # 多语言唤醒词训练 — hi hotel / 你好酒店 / 你好酒店(粤) / 안녕 호텔(韩)
-model_name: "hi_hotel_multilang_v1"
+model_name: "hi_hotel_multilang_10k"
 output_dir: "./trained_models"
+
+tts_settings:
+  length_scales: [0.85, 0.95, 1.05, 1.15]
+  noise_scales: [0.4, 0.55, 0.667, 0.8]
+  noise_w_scales: [0.6, 0.8, 1.0]
 
 positive_data_path: "./data/positive"
 negative_data_path: "./data/negative"
@@ -36,13 +41,13 @@ batch_composition:
 
 feature_manifest:
   targets:
-    t: "./trained_models/hi_hotel_multilang_v1/features/positive_features.npy"
+    t: "./trained_models/hi_hotel_multilang_10k/features/positive_features.npy"
   negatives:
     acav: "openwakeword_features_ACAV100M_2000_hrs_16bit.npy"
-    n: "./trained_models/hi_hotel_multilang_v1/features/negative_features.npy"
-    hn: "./trained_models/hi_hotel_multilang_v1/features/hard_negative_features.npy"
+    n: "./trained_models/hi_hotel_multilang_10k/features/negative_features.npy"
+    hn: "./trained_models/hi_hotel_multilang_10k/features/hard_negative_features.npy"
   targets_val:
-    t_v: "./trained_models/hi_hotel_multilang_v1/features/positive_features_val.npy"
+    t_v: "./trained_models/hi_hotel_multilang_10k/features/positive_features_val.npy"
   negatives_val:
     bv: "RACON_11h_v1.npy"
 
@@ -131,12 +136,12 @@ data_generation_tasks:
     text_source:
       type: "from_list"
       phrases:
-        - "你好饭店"
-        - "泥好酒店"
-        - "你豪酒店"
-        - "你好酒家"
-        - "您好酒店"
-      repeat_each: 40
+        - "哈喽 艾娃"
+        - "哈罗 爱娃"
+        - "嗨喽 埃娃"
+        - "海楼 阿娃"
+        - "嘿咯 唉哇"
+      repeat_each: 300
     tts_settings:
       models: "zh_CN-huayan-medium"
 
@@ -148,14 +153,17 @@ data_generation_tasks:
     text_source:
       type: "from_list"
       phrases:
-        - "你好饭店"
-        - "泥好酒店"
-        - "你豪酒店"
-        - "你好酒家"
-      repeat_each: 50
+        - "哈囉 艾娃"
+        - "哈佬 愛娃"
+        - "嘿囉 埃娃"
+        - "海樓 阿娃"
+        - "嘻囉 唉哇"
+      repeat_each: 300
     tts_settings:
       engine: "aliyun_tts"
       lang_code: "yue"
+      voice: ["Kiki", "Rocky", "Cherry", "Ethan", "Serena", "Moon", "Kai", "Bella", "Vivian"]
+      speed: [0.9, 1.0, 1.1]
 
   - name: "KO Negatives"
     enabled: true
@@ -165,14 +173,17 @@ data_generation_tasks:
     text_source:
       type: "from_list"
       phrases:
-        - "안녕하세요 호텔"
-        - "안녕 모텔"
-        - "안영 호텔"
-        - "안녕 호떨"
-      repeat_each: 50
+        - "헬로 에이바"
+        - "할로 아바"
+        - "헬로우 에바"
+        - "헤이로 아이바"
+        - "헐로 에이바"
+      repeat_each: 300
     tts_settings:
       engine: "aliyun_tts"
       lang_code: "ko"
+      voice: ["Sohee", "Cherry", "Ethan", "Serena", "Moon", "Kai", "Bella", "Vivian", "Jennifer", "Ryan"]
+      speed: [0.9, 1.0, 1.1]
 
 feature_generation_manifest:
   pos_feature:

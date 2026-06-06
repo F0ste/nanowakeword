@@ -472,7 +472,7 @@ def _generate_aliyun_tts(
     file_prefix: str,
     lang_code: str,
     voice: Optional[Union[str, List[str]]],
-    speed: float,
+    speed: Union[float, List[float]],
     target_sr: int
 ):
     """Qwen3-TTS Flash generation via DashScope SDK."""
@@ -500,13 +500,18 @@ def _generate_aliyun_tts(
     else:
         voices = voice
 
-    voice_cycler = itertools.cycle(voices)
+    if isinstance(speed, (int, float)):
+        speed_variations = [speed]
+    else:
+        speed_variations = list(speed)
 
-    _LOGGER.info(f"Generating {max_samples} samples via Qwen3-TTS (lang={lang_type}, voices={voices})")
+    setting_cycler = itertools.cycle(itertools.product(voices, speed_variations))
+
+    _LOGGER.info(f"Generating {max_samples} samples via Qwen3-TTS (lang={lang_type}, voices={voices}, speeds={speed_variations})")
 
     for i, prompt in enumerate(tqdm(text_prompts, desc="Generating Audio (Qwen3-TTS)", unit="sample")):
         try:
-            current_voice = next(voice_cycler)
+            current_voice, current_speed = next(setting_cycler)
 
             response = dashscope.MultiModalConversation.call(
                 model=_ALIYUN_MODEL,
@@ -514,6 +519,7 @@ def _generate_aliyun_tts(
                 text=prompt,
                 voice=current_voice,
                 language_type=lang_type,
+                speech_rate=current_speed,
                 stream=False
             )
 
@@ -543,7 +549,7 @@ def _generate_aliyun_tts(
 
             timestamp_ms = int(time.time() * 1000)
             random_num = random.randint(100, 999)
-            out_filename = f"{file_prefix}_{timestamp_ms}_{random_num}_{current_voice}.wav"
+            out_filename = f"{file_prefix}_{timestamp_ms}_{random_num}_{current_voice}_s{current_speed:.2f}.wav"
 
             with wave.open(os.path.join(output_dir, out_filename), "wb") as wf:
                 wf.setnchannels(1); wf.setsampwidth(2); wf.setframerate(target_sr)

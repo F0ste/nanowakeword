@@ -90,16 +90,26 @@ class AudioFeatures():
             sessionOptions.inter_op_num_threads = ncpu
             sessionOptions.intra_op_num_threads = ncpu
 
+            available_providers = ort.get_available_providers()
+            if device == "gpu":
+                if "CUDAExecutionProvider" in available_providers:
+                    providers = ["CUDAExecutionProvider", "CPUExecutionProvider"]
+                elif "ROCMExecutionProvider" in available_providers:
+                    providers = ["ROCMExecutionProvider", "CPUExecutionProvider"]
+                else:
+                    providers = ["CPUExecutionProvider"]
+            else:
+                providers = ["CPUExecutionProvider"]
+
             # Melspectrogram model
             self.melspec_model = ort.InferenceSession(melspec_model_path, sess_options=sessionOptions,
-                                                      providers=["CUDAExecutionProvider"] if device == "gpu" else ["CPUExecutionProvider"])
+                                                      providers=providers)
             self.onnx_execution_provider = self.melspec_model.get_providers()[0]
             self.melspec_model_predict = lambda x: self.melspec_model.run(None, {'input': x})
 
             # Audio embedding model
             self.embedding_model = ort.InferenceSession(embedding_model_path, sess_options=sessionOptions,
-                                                        providers=["CUDAExecutionProvider"] if device == "gpu"
-                                                        else ["CPUExecutionProvider"])
+                                                        providers=providers)
             self.embedding_model_predict = lambda x: self.embedding_model.run(None, {'input_1': x})[0].squeeze()
 
         # Create databuffers with empty/random data

@@ -147,18 +147,18 @@ data_generation_tasks:
       models: "zh_CN-huayan-medium"
 
   - name: "YUE Negatives"
-    enabled: true
+    enabled: false
     output_dir: "data/negative"
     num_samples: 1500
     file_prefix: "neg_yue"
     text_source:
       type: "from_list"
       phrases:
-        - "哈囉 艾娃"
-        - "哈佬 愛娃"
-        - "嘿囉 埃娃"
-        - "海樓 阿娃"
-        - "嘻囉 唉哇"
+        - "早晨"
+        - "多謝晒"
+        - "唔該晒"
+        - "聽日見"
+        - "而家幾點"
       repeat_each: 300
     tts_settings:
       engine: "voxcpm"
@@ -178,18 +178,18 @@ data_generation_tasks:
       speed: [1.5, 2.0, 2.5]
 
   - name: "KO Negatives"
-    enabled: true
+    enabled: false
     output_dir: "data/negative"
     num_samples: 1500
     file_prefix: "neg_ko"
     text_source:
       type: "from_list"
       phrases:
-        - "헬로 에이바"
-        - "할로 아바"
-        - "헬로우 에바"
-        - "헤이로 아이바"
-        - "헐로 에이바"
+        - "감사합니다"
+        - "잠깐만요"
+        - "오늘 뭐해"
+        - "밥 먹었어"
+        - "괜찮아요"
       repeat_each: 300
     tts_settings:
       engine: "voxcpm"

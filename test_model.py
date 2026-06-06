@@ -5,7 +5,7 @@ sys.path.insert(0, ".")
 from nanowakeword import NanoInterpreter
 
 # Load the distilled (lite) model
-model_path = "1500version/model/hi_hotel_multilang_v1_lite.onnx"
+model_path = "3000version/model/hi_hotel_multilang_10k_lite.onnx"
 interpreter = NanoInterpreter.load_model(model_path)
 
 print(f"Model loaded: {model_path}")

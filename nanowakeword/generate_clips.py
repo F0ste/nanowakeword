@@ -258,18 +258,33 @@ def generate_clips(base_config):
             print_warning(f"No texts were generated for task '{task_name}'. Skipping.")
             continue
 
+        # Count already-generated files for this task (resume support)
+        file_prefix = task.get("file_prefix", "sample")
+        existing_count = 0
+        if os.path.isdir(output_dir):
+            existing_count = len([
+                f for f in os.listdir(output_dir)
+                if f.startswith(file_prefix) and f.endswith(".wav")
+            ])
+        if existing_count >= num_samples:
+            print_info(f"Task '{task_name}': {existing_count}/{num_samples} already exist. Skipping.")
+            continue
+        remaining = num_samples - existing_count
+        if existing_count > 0:
+            print_info(f"Task '{task_name}': {existing_count}/{num_samples} exist, generating {remaining} more.")
+
         # Configure TTS & Run Generation 
         task_tts_settings = global_tts_settings.copy()
         task_tts_settings.update(task.get("tts_settings", {}))
         
-        print_info(f"Generating {num_samples} clips -> '{output_dir}'")
+        print_info(f"Generating {remaining} clips -> '{output_dir}'")
         os.makedirs(output_dir, exist_ok=True)
         
         generate_samples(
             text=final_texts,
-            max_samples=num_samples,
+            max_samples=remaining,
             output_dir=output_dir,
-            file_prefix=task.get("file_prefix", "sample"),
+            file_prefix=file_prefix,
             **task_tts_settings
         )
         

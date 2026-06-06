@@ -542,7 +542,14 @@ def _generate_aliyun_tts(
 
             audio_array = np.frombuffer(audio_resp.content, dtype=np.int16)
 
-            sample_rate = getattr(getattr(response.output, "audio", None), "sample_rate", None) or target_sr
+            sample_rate = None
+            try:
+                audio_output = getattr(response.output, "audio", None)
+                if audio_output is not None:
+                    sample_rate = getattr(audio_output, "sample_rate", None)
+            except (KeyError, AttributeError):
+                pass
+            sample_rate = sample_rate or target_sr
             if sample_rate != target_sr:
                 num_s = int(len(audio_array) * target_sr / sample_rate)
                 audio_array = sps.resample(audio_array.astype(np.float64), num_s).astype(np.int16)

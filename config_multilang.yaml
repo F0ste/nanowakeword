@@ -51,7 +51,7 @@ data_generation_tasks:
   - name: "EN Positive"
     enabled: true
     output_dir: "data/positive"
-    num_samples: 1500
+    num_samples: 3000
     file_prefix: "en_pos"
     text_source:
       type: "fixed_phrase"
@@ -98,7 +98,7 @@ data_generation_tasks:
   - name: "EN Adversarial"
     enabled: true
     output_dir: "data/negative"
-    num_samples: 3000
+    num_samples: 4000
     file_prefix: "neg_adv_en"
     text_source:
       type: "auto_adversarial"
@@ -124,9 +124,9 @@ data_generation_tasks:
       min_distance: 0.3
 
   - name: "ZH Negatives"
-    enabled: false
+    enabled: true
     output_dir: "data/negative"
-    num_samples: 200
+    num_samples: 1500
     file_prefix: "neg_zh"
     text_source:
       type: "from_list"
@@ -141,9 +141,9 @@ data_generation_tasks:
       models: "zh_CN-huayan-medium"
 
   - name: "YUE Negatives"
-    enabled: false
+    enabled: true
     output_dir: "data/negative"
-    num_samples: 200
+    num_samples: 1500
     file_prefix: "neg_yue"
     text_source:
       type: "from_list"
@@ -158,9 +158,9 @@ data_generation_tasks:
       lang_code: "yue"
 
   - name: "KO Negatives"
-    enabled: false
+    enabled: true
     output_dir: "data/negative"
-    num_samples: 200
+    num_samples: 1500
     file_prefix: "neg_ko"
     text_source:
       type: "from_list"

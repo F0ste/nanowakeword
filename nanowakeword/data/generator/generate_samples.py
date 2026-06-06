@@ -105,6 +105,14 @@ except ImportError:
 
 _KOKORO_PIPELINE_CACHE: Dict[str, Any] = {}
 
+_VOXCPM_MODEL_CACHE: Optional[Any] = None
+_VOXCPM_VOICES = None
+try:
+    from voxcpm import VoxCPM
+    _VOXCPM_VOICES = VoxCPM  # flag that import succeeded
+except ImportError:
+    pass
+
 # Mapping from lang_code to default voice (core Kokoro v0.9.4+)
 # For languages not listed (e.g. 'k'=Korean from wrappers), user must specify a voice.
 _KOKORO_DEFAULT_VOICES = {
@@ -374,6 +382,11 @@ def generate_samples(
                              lang_code, voice, speed, TARGET_SAMPLE_RATE)
         return
 
+    if engine == "voxcpm":
+        _generate_voxcpm(text_prompts, output_dir, max_samples, file_prefix,
+                         voice, speed, TARGET_SAMPLE_RATE)
+        return
+
     # --- Piper path (default) ---
     if not _PIPER_AVAILABLE:
         _LOGGER.critical("piper-tts is not installed. Please run: pip install piper-tts")
@@ -568,6 +581,92 @@ def _generate_aliyun_tts(
             _LOGGER.error(f"Error on sample {i} ('{prompt}'): {e}\n{traceback.format_exc()}")
 
     _LOGGER.info("Sample generation complete (Qwen3-TTS).")
+
+
+def _generate_voxcpm(
+    text_prompts: List[str],
+    output_dir: str,
+    max_samples: int,
+    file_prefix: str,
+    voice_descriptions: Optional[Union[str, List[str]]],
+    cfg_value: Union[float, List[float]],
+    target_sr: int
+):
+    """VoxCPM2 TTS generation with Voice Design support."""
+
+    global _VOXCPM_MODEL_CACHE
+
+    if _VOXCPM_VOICES is None:
+        _LOGGER.critical("voxcpm is not installed. Please run: pip install voxcpm")
+        return
+
+    if isinstance(voice_descriptions, str):
+        voice_descriptions = [voice_descriptions]
+    elif voice_descriptions is None:
+        voice_descriptions = ["A natural, clear voice"]
+
+    if isinstance(cfg_value, (int, float)):
+        cfg_values = [cfg_value]
+    else:
+        cfg_values = list(cfg_value)
+
+    if _VOXCPM_MODEL_CACHE is None:
+        import torch
+        device = "cuda" if torch.cuda.is_available() else "cpu"
+        _LOGGER.info(f"Loading VoxCPM2 model on {device} (first time, ~8 GB VRAM)...")
+        local_model_dir = os.path.join("VoxCPM2_model", "OpenBMB", "VoxCPM2")
+        model_source = local_model_dir if os.path.isdir(local_model_dir) else "openbmb/VoxCPM2"
+        _LOGGER.info(f"Loading VoxCPM2 from: {model_source}")
+        _VOXCPM_MODEL_CACHE = _VOXCPM_VOICES.from_pretrained(
+            model_source,
+            load_denoiser=False,
+            device=device,
+        )
+        _LOGGER.info("VoxCPM2 model loaded.")
+
+    model = _VOXCPM_MODEL_CACHE
+
+    import itertools
+    setting_cycler = itertools.cycle(itertools.product(voice_descriptions, cfg_values))
+
+    _LOGGER.info(f"Generating {max_samples} samples via VoxCPM2 (voices={len(voice_descriptions)}, cfg={cfg_values})")
+
+    for i, prompt in enumerate(tqdm(text_prompts, desc="Generating Audio (VoxCPM2)", unit="sample")):
+        try:
+            current_voice, current_cfg = next(setting_cycler)
+            voiced_text = f"({current_voice}){prompt}"
+
+            wav_float = model.generate(
+                text=voiced_text,
+                cfg_value=current_cfg,
+                inference_timesteps=10,
+            )
+
+            if wav_float is None or len(wav_float) == 0:
+                continue
+
+            src_sr = model.tts_model.sample_rate
+            if src_sr != target_sr:
+                num_s = int(len(wav_float) * target_sr / src_sr)
+                wav_float = sps.resample(wav_float.astype(np.float64), num_s)
+
+            audio_int16 = np.clip(wav_float * 32767, -32767, 32767).astype(np.int16)
+
+            timestamp_ms = int(time.time() * 1000)
+            random_num = random.randint(100, 999)
+            voice_tag = current_voice.replace(" ", "_")[:30]
+            out_filename = f"{file_prefix}_{timestamp_ms}_{random_num}_{voice_tag}.wav"
+
+            with wave.open(os.path.join(output_dir, out_filename), "wb") as wf:
+                wf.setnchannels(1); wf.setsampwidth(2); wf.setframerate(target_sr)
+                wf.writeframes(audio_int16.tobytes())
+
+            _save_text_alongside(output_dir, out_filename, prompt)
+
+        except Exception as e:
+            _LOGGER.error(f"Error on sample {i} ('{prompt}'): {e}\n{traceback.format_exc()}")
+
+    _LOGGER.info("Sample generation complete (VoxCPM2).")
 
 
 def _generate_kokoro(

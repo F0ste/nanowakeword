@@ -161,10 +161,21 @@ data_generation_tasks:
         - "嘻囉 唉哇"
       repeat_each: 300
     tts_settings:
-      engine: "aliyun_tts"
-      lang_code: "yue"
-      voice: ["Kiki", "Rocky"]
-      speed: [0.9, 1.0, 1.1]
+      engine: "voxcpm"
+      voice:
+        - "A sweet young Cantonese woman, gentle and warm, like a close girlfriend chatting casually, slightly fast"
+        - "A middle-aged Hong Kong man, humorous and street-smart, relaxed tone, normal speed"
+        - "A teenage Cantonese girl, lively and energetic, bright and high-pitched voice, speaking quickly"
+        - "An elderly Cantonese man, deep and slow voice, wise and calm, speaking deliberately"
+        - "A young Cantonese office lady, soft and elegant, formal and polite tone, moderate pace"
+        - "A Cantonese man in his thirties, confident and clear, professional tone, steady rhythm"
+        - "A little Cantonese boy, childish and cute, high-pitched and excited, speaking fast"
+        - "An old Cantonese grandmother, warm and kind, slightly hoarse, speaking slowly"
+        - "A young Cantonese college student, casual and laid-back, slightly lazy tone, normal speed"
+        - "A middle-aged Cantonese woman, sharp and loud, street vendor style, speaking rapidly"
+        - "A Cantonese radio host, smooth and deep, very clear pronunciation, slow and measured"
+        - "A teenage Cantonese boy, voice cracking slightly, playful and naughty, fast speech"
+      speed: [1.5, 2.0, 2.5]
 
   - name: "KO Negatives"
     enabled: true
@@ -181,10 +192,21 @@ data_generation_tasks:
         - "헐로 에이바"
       repeat_each: 300
     tts_settings:
-      engine: "aliyun_tts"
-      lang_code: "ko"
-      voice: ["Sohee", "Cherry", "Ethan", "Serena", "Moon", "Kai", "Bella", "Vivian", "Jennifer", "Ryan"]
-      speed: [0.9, 1.0, 1.1]
+      engine: "voxcpm"
+      voice:
+        - "A young Korean woman, gentle and warm, like a caring older sister, natural pace"
+        - "A young Korean man, friendly and cheerful, bright tone, normal speed"
+        - "A middle-aged Korean woman, mature and elegant, formal polite speech, slow and clear"
+        - "An elderly Korean man, deep and slow, wise and grandfatherly, speaking heavily"
+        - "A teenage Korean girl, bright and energetic, casual and playful, speaking fast"
+        - "A Korean man in his thirties, confident and clear, professional business tone, steady"
+        - "A little Korean boy, childish and cute, high-pitched and excited, very fast speech"
+        - "An old Korean grandmother, warm and kind, slightly trembling voice, speaking slowly"
+        - "A young Korean student, shy and soft-spoken, hesitating slightly, moderate pace"
+        - "A middle-aged Korean man, rough and loud, street-style, speaking rapidly and casually"
+        - "A Korean news anchor, smooth and authoritative, very clear pronunciation, measured pace"
+        - "A teenage Korean boy, rebellious and cool, lazy tone, slow and relaxed speech"
+      speed: [1.5, 2.0, 2.5]
 
 feature_generation_manifest:
   pos_feature:

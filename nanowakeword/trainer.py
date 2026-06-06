@@ -418,6 +418,15 @@ def train(cli_args=None):
             feature_manifests=manifest
         )
 
+        # Log batch composition and verify ratio
+        total_per_batch = sum(composition_cfg.values())
+        pos = composition_cfg.get('t', 0)
+        adv = composition_cfg.get('n', 0) + composition_cfg.get('hn', 0)
+        bg = total_per_batch - pos - adv
+        print_info(f"Batch composition: {composition_cfg} | total={total_per_batch}")
+        print_info(f"  Positive: {pos} ({pos/total_per_batch*100:.0f}%) | Adversarial: {adv} ({adv/total_per_batch*100:.0f}%) | Background: {bg} ({bg/total_per_batch*100:.0f}%)")
+        print_info(f"  Ratio: 1:{adv//pos}:{bg//pos}")
+
         num_workers = config.get("num_workers", 2)
 
         # Create DataLoader with our custom sampler and collate_fn

@@ -18,6 +18,7 @@ n_blocks: 4
 embedding_dim: 128
 dropout_prob: 0.35
 
+num_workers: 0
 steps: 50000
 stabilization_steps: 20000
 
@@ -205,7 +206,7 @@ distillation:
   student_n_blocks: 1
   student_embedding_dim: 8
 
-generate_clips: true
-transform_clips: true
+generate_clips: false
+transform_clips: false
 train_model: true
 overwrite: false

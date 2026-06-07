@@ -68,6 +68,9 @@ train = [
     "pronouncing>=0.2, <1.0",
     "sounddevice>=0.4.6, <1.0",
     
+    # --- Multilingual Adversarial Generation ---
+    "pypinyin>=0.50, <1.0",
+
     # --- Utilities ---
     "PyYAML>=6.0, <7.0",
     "rich>=13.0, <14.0",

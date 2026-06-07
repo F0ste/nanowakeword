@@ -217,6 +217,9 @@ NwwResourcesModel/
 SonicWeave-v2/
 trained_models/
 data/
+
+# Unignore package source code directories named "data"
+!nanowakeword/data/
 RACON_11h_v1.npy
 openwakeword_features_ACAV100M_2000_hrs_16bit.npy
 AE29H_float32.npy
@@ -224,3 +227,8 @@ My_config.yaml
 
 
 
+/1500version
+/3000version
+/g2pW
+/g2pW
+g2pW/config.py

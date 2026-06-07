@@ -1,0 +1,323 @@
+# config_multilang.yaml
+# 多语言唤醒词训练 — hi hotel / 你好酒店 / 你好酒店(粤) / 안녕 호텔(韩)
+model_name: "hi_hotel_multilang_10k"
+output_dir: "./trained_models"
+
+tts_settings:
+  length_scales: [0.85, 0.95, 1.05, 1.15]
+  noise_scales: [0.4, 0.55, 0.667, 0.8]
+  noise_w_scales: [0.6, 0.8, 1.0]
+
+positive_data_path: "./data/positive"
+negative_data_path: "./data/negative"
+
+background_paths:
+  - "SonicWeave-v2/part1"
+  - "SonicWeave-v2/part2"
+  - "SonicWeave-v2/part3"
+rir_paths: []
+
+model_type: "dnn"
+layer_size: 48
+n_blocks: 4
+embedding_dim: 128
+dropout_prob: 0.35
+
+num_workers: 0
+feature_gen_cpu_ratio: 1.0
+steps: 50000
+stabilization_steps: 20000
+
+optimizer_type: "adamw"
+learning_rate_max: 0.0008
+lr_scheduler_type: "onecycle"
+weight_decay: 0.01
+
+batch_composition:
+  # 1:2:2 → 2:1:2 ratio (more positive)
+  t: 120     # positive (40%)
+  n: 60      # adversarial TTS (20%)
+  hn: 10     # adversarial phoneme-hard
+  acav: 120  # background: ACAV100M (40%)
+
+feature_manifest:
+  targets:
+    t: "./trained_models/hi_hotel_multilang_10k/features/positive_features.npy"
+  negatives:
+    acav: "openwakeword_features_ACAV100M_2000_hrs_16bit.npy"
+    n: "./trained_models/hi_hotel_multilang_10k/features/negative_features.npy"
+    hn: "./trained_models/hi_hotel_multilang_10k/features/hard_negative_features.npy"
+  targets_val:
+    t_v: "./trained_models/hi_hotel_multilang_10k/features/positive_features_val.npy"
+  negatives_val:
+    bv: "RACON_11h_v1.npy"
+
+data_generation_tasks:
+  # ===== 正样本：4 语种全部输出到 data/positive/ =====
+  - name: "EN Positive"
+    enabled: true
+    output_dir: "data/positive"
+    num_samples: 3000
+    file_prefix: "en_pos"
+    text_source:
+      type: "fixed_phrase"
+      phrase: "hello Ava"
+    tts_settings:
+      engine: "kokoro"
+      lang_code: "a"
+      voice: ["af_heart", "af_bella", "af_nicole", "af_sarah", "af_sky",
+              "am_adam", "am_michael",
+              "bf_emma", "bf_isabella", "bm_george", "bm_lewis"]
+
+  - name: "ZH Positive"
+    enabled: false
+    output_dir: "data/positive"
+    num_samples: 1500
+    file_prefix: "zh_pos"
+    text_source:
+      type: "fixed_phrase"
+      phrase: "你好酒店"
+    tts_settings:
+      models: "zh_CN-huayan-medium"
+
+  - name: "YUE Positive"
+    enabled: false
+    output_dir: "data/positive"
+    num_samples: 1500
+    file_prefix: "yue_pos"
+    text_source:
+      type: "fixed_phrase"
+      phrase: "你好酒店"
+    tts_settings:
+      engine: "aliyun_tts"
+      lang_code: "yue"
+      voice: "Kiki"
+
+  - name: "KO Positive"
+    enabled: false
+    output_dir: "data/positive"
+    num_samples: 1500
+    file_prefix: "ko_pos"
+    text_source:
+      type: "fixed_phrase"
+      phrase: "안녕 호텔"
+    tts_settings:
+      engine: "aliyun_tts"
+      lang_code: "ko"
+      voice: "Sohee"
+
+  # ===== 负样本：全部输出到 data/negative/ =====
+  - name: "EN Adversarial"
+    enabled: true
+    output_dir: "data/negative"
+    num_samples: 4000
+    file_prefix: "neg_adv_en"
+    text_source:
+      type: "auto_adversarial"
+      base_phrase: "hello Ava"
+      multi_word_prob: 0.3
+      include_input_words: 0.35
+      include_partial_phrase: 0.1
+
+  - name: "EN Ava+Random (anti-ava bias)"
+    enabled: true
+    output_dir: "data/negative"
+    num_samples: 1500
+    file_prefix: "neg_ava_en"
+    text_source:
+      type: "from_list"
+      phrases:
+        - "Ava"
+        - "Eva"
+        - "hey Ava"
+        - "ok Ava"
+        - "okay Ava"
+        - "hi Ava"
+        - "hey Eva"
+        - "hi Eva"
+        - "listen Ava"
+        - "Ava please"
+        - "Ava come here"
+        - "Ava stop"
+        - "Ava listen"
+        - "Ava help"
+        - "goodbye Ava"
+        - "thank you Ava"
+        - "sorry Ava"
+        - "Ava wait"
+        - "Ava go"
+        - "Ava now"
+      repeat_each: 75
+
+  - name: "EN Hello+Random (anti-hello bias)"
+    enabled: true
+    output_dir: "data/negative"
+    num_samples: 1500
+    file_prefix: "neg_hello_en"
+    text_source:
+      type: "from_list"
+      phrases:
+        - "hello world"
+        - "hello there"
+        - "hello everyone"
+        - "hello darling"
+        - "hello sunshine"
+        - "hello stranger"
+        - "hello morning"
+        - "hello evening"
+        - "hello buddy"
+        - "hello sweetheart"
+        - "hello beautiful"
+        - "hello handsome"
+        - "hello sunshine"
+        - "hello captain"
+        - "hello doctor"
+        - "hello mother"
+        - "hello father"
+        - "hello sister"
+        - "hello brother"
+        - "hello waiter"
+      repeat_each: 75
+
+  - name: "EN Positive Val"
+    enabled: true
+    output_dir: "data/positive_val"
+    num_samples: 400
+    file_prefix: "en_pos_val"
+    text_source:
+      type: "fixed_phrase"
+      phrase: "hello Ava"
+    tts_settings:
+      engine: "kokoro"
+      lang_code: "a"
+      voice: ["af_heart", "af_bella", "af_nicole", "af_sarah", "af_sky",
+              "am_adam", "am_michael", "bf_emma", "bf_isabella",
+              "ef_dora", "em_santa", "ff_siwis",
+              "hf_alpha", "hm_omega", "if_sara", "im_nicola",
+              "jf_alpha", "jm_kumo", "pf_dora", "pm_alex"]
+
+  - name: "EN Phoneme Hard"
+    enabled: true
+    output_dir: "data/negative_phoneme"
+    num_samples: 1500
+    file_prefix: "neg_ph_en"
+    text_source:
+      type: "phoneme_adversarial"
+      base_phrase: "hello Ava"
+      min_distance: 0.3
+
+  - name: "ZH Negatives"
+    enabled: true
+    output_dir: "data/negative"
+    num_samples: 1500
+    file_prefix: "neg_zh"
+    text_source:
+      type: "zh_phoneme_adversarial"
+      base_phrase: "你好酒店"
+      min_distance: 0.15
+    tts_settings:
+      engine: "voxcpm"
+      voice:
+        - "一个年轻的中国女性，声音温柔温暖，自然对话语气，语速适中"
+        - "一个中年中国男人，声音深沉稳重，专业口吻，正常语速"
+        - "一个中国青春少女，活泼有活力，声音明亮欢快，说话很快"
+        - "一个中国老人，语速缓慢睿智，声音略带沙哑，沉稳从容"
+        - "一个中国年轻白领女性，优雅礼貌，正式但不生硬，语速适中"
+        - "一个中国大学生，随性轻松，日常对话语气"
+        - "一个中国小女孩，童真可爱，声线高亢兴奋，说话很快"
+        - "一个中国老奶奶，温暖慈祥，声音略微发颤，语速缓慢"
+        - "一个中国电台主持人，声音流畅清晰，专业发音，语速从容"
+        - "一个中国中年女性，声音响亮热情，精力充沛，说话急促"
+        - "一个中国年轻男性，自信友好，声音明亮清晰，正常语速"
+        - "一个中国少年，略带紧张，声音有点沙哑，随性语气"
+      speed: [1.0, 1.3, 1.6, 2.0]
+
+  - name: "YUE Negatives"
+    enabled: true
+    output_dir: "data/negative"
+    num_samples: 1500
+    file_prefix: "neg_yue"
+    text_source:
+      type: "yue_phoneme_adversarial"
+      base_phrase: "你好酒店"
+      min_distance: 0.15
+    tts_settings:
+      engine: "voxcpm"
+      lang_code: "yue"
+      voice:
+        - "一个讲粤语的年轻香港女仔，声音温柔甜美，像亲密朋友闲聊，语速稍快"
+        - "一个讲粤语的中年香港男人，幽默接地气，语气轻松，正常语速"
+        - "一个讲粤语的青春少女，活泼有活力，声线明亮高亢，说话很快"
+        - "一个讲粤语的老伯，声音低沉缓慢，睿智稳重，语速很慢"
+        - "一个讲粤语的年轻OL，温柔优雅，正式礼貌的语气，语速适中"
+        - "一个讲粤语的三十岁男人，自信清晰，专业口吻，节奏平稳"
+        - "一个讲粤语的小男孩，童真可爱，声线高亢兴奋，说话很快"
+        - "一个讲粤语的老婆婆，温暖慈祥，声音略沙哑，说话慢悠悠"
+        - "一个讲粤语的大学生，随性慵懒，略带懒音，正常语速"
+        - "一个讲粤语的中年师奶，声音响亮尖锐，街市风格，说话急促"
+        - "一个讲粤语的电台主持，声音醇厚深沉，发音清晰，语速从容"
+        - "一个讲粤语的叛逆少年，声线略沙哑，调皮捣蛋，说话很快"
+      speed: [1.5, 2.0, 2.5]
+
+  - name: "KO Negatives"
+    enabled: true
+    output_dir: "data/negative"
+    num_samples: 1500
+    file_prefix: "neg_ko"
+    text_source:
+      type: "ko_phoneme_adversarial"
+      base_phrase: "안녕 호텔"
+      min_distance: 0.08
+    tts_settings:
+      engine: "voxcpm"
+      voice:
+        - "젊은 한국 여성, 부드럽고 따뜻한 목소리, 자연스러운 대화 톤, 보통 속도"
+        - "젊은 한국 남성, 친근하고 밝은 목소리, 경쾌한 톤, 보통 속도"
+        - "중년 한국 여성, 성숙하고 우아한 목소리, 공손한 말투, 느리고 또렷하게"
+        - "나이 든 한국 남성, 깊고 느린 목소리, 지혜로운 할아버지 같은 말투, 천천히"
+        - "10대 한국 소녀, 밝고 활기찬 목소리, 장난기 많고 경쾌한 말투, 빠르게"
+        - "30대 한국 남성, 자신감 있고 또렷한 목소리, 전문적인 비즈니스 톤, 일정한 속도"
+        - "어린 한국 남자아이, 천진난만하고 귀여운 목소리, 높고 신나는 말투, 매우 빠르게"
+        - "나이 든 한국 할머니, 따뜻하고 자상한 목소리, 약간 떨리는 목소리, 천천히"
+        - "젊은 한국 여학생, 수줍고 부드러운 목소리, 약간 머뭇거리는 말투, 보통 속도"
+        - "중년 한국 남성, 거칠고 큰 목소리, 거리에서 말하는 스타일, 빠르고 편하게"
+        - "한국 뉴스 앵커, 부드럽고 권위 있는 목소리, 매우 또렷한 발음, 측정된 속도"
+        - "10대 한국 소년, 반항적이고 시크한 말투, 느긋한 톤, 느리고 편안하게"
+      speed: [1.5, 2.0, 2.5]
+
+feature_generation_manifest:
+  pos_feature:
+    input_audio_dirs: ["./data/positive"]
+    output_filename: "positive_features.npy"
+    use_background_noise: true
+    augmentation_rounds: 10
+  pos_val_feature:
+    input_audio_dirs: ["./data/positive_val"]
+    output_filename: "positive_features_val.npy"
+    use_background_noise: true
+    augmentation_rounds: 1
+  neg_feature_1:
+    input_audio_dirs: ["./data/negative"]
+    output_filename: "negative_features.npy"
+    use_background_noise: true
+    augmentation_rounds: 10
+  neg_feature_2:
+    input_audio_dirs: ["./data/negative_phoneme"]
+    output_filename: "hard_negative_features.npy"
+    use_background_noise: true
+    augmentation_rounds: 1
+
+distillation:
+  enabled: true
+  steps: 6000
+  temperature: 4.0
+  alpha: 0.7
+  learning_rate: 0.0005
+  student_layer_size: 8
+  student_n_blocks: 1
+  student_embedding_dim: 8
+
+generate_clips: false
+transform_clips: false
+train_model: true
+overwrite: false

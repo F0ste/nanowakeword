@@ -28,6 +28,12 @@ from nanowakeword.data.generator.adversarial_texts import (
     PhonemeAdversarialGenerator,
     collapse_repeated_letters
 )
+from nanowakeword.data.generator.multilingual_phoneme_adversarial import (
+    ChinesePhonemeAdversarialGenerator,
+    KoreanPhonemeAdversarialGenerator,
+    CantonesePhonemeAdversarialGenerator,
+    create_generator,
+)
 from nanowakeword.data.generator.generate_samples import generate_samples
 from nanowakeword.utils.logger import print_step_header, print_info, print_warning, print_error
 
@@ -97,14 +103,39 @@ def generate_clips(base_config):
               from. Falls back to the global `target_phrase`.
             - Supports other keys like `include_partial_phrase`, `max_multi_word_len`, etc.
 
-        4.  `type: "phoneme_adversarial"`
-            Generates nonsensical but phonetically very similar text by manipulating
-            the phonemes of a base phrase. This creates extremely challenging
-            negative samples to drastically reduce false activations.
-            - `base_phrase` (str, optional): The phrase to generate variations
-              from. Falls back to the global `target_phrase`.
-            - `min_distance` (float, optional): Controls how different the generated
-              phoneme strings are from the original. Defaults to 0.35.
+         4.  `type: "phoneme_adversarial"`
+             Generates nonsensical but phonetically very similar text by manipulating
+             the phonemes of a base phrase. This creates extremely challenging
+             negative samples to drastically reduce false activations.
+             - `base_phrase` (str, optional): The phrase to generate variations
+               from. Falls back to the global `target_phrase`.
+             - `min_distance` (float, optional): Controls how different the generated
+               phoneme strings are from the original. Defaults to 0.35.
+
+         5.  `type: "zh_phoneme_adversarial"`
+             Generates real Chinese characters with phonetically similar pinyin to
+             the base phrase. Uses pinyin-based substitution with control over
+             initial, final, and tone changes.
+             - `base_phrase` (str): Chinese text to generate variations from.
+             - `min_distance` (float, optional): Minimum phonetic distance. Defaults to 0.30.
+
+         6.  `type: "ko_phoneme_adversarial"`
+             Generates real Korean hangul with phonetically similar jamo to the
+             base phrase. Uses jamo decomposition and recombination into valid syllables.
+             - `base_phrase` (str): Korean text to generate variations from.
+             - `min_distance` (float, optional): Minimum phonetic distance. Defaults to 0.30.
+
+         7.  `type: "yue_phoneme_adversarial"`
+             Generates Cantonese adversarial text using Chinese character substitution.
+             Delegates to the Chinese pinyin generator; Cantonese TTS handles pronunciation.
+             - `base_phrase` (str): Chinese text to generate variations from.
+             - `min_distance` (float, optional): Minimum phonetic distance. Defaults to 0.30.
+
+         8.  `type: "multilingual_phoneme_adversarial"`
+             Unified multilingual adversarial generator with automatic language detection.
+             - `base_phrase` (str): Text to generate variations from.
+             - `lang` (str): Language code (zh, ko, yue).
+             - `min_distance` (float, optional): Minimum phonetic distance. Defaults to 0.30.
 
     Example Usage (in a .yaml config file):
         ```yaml
@@ -249,7 +280,72 @@ def generate_clips(base_config):
             generator = PhonemeAdversarialGenerator(phonemizer_model, min_distance=min_distance)
             variants = generator.generate(base_phrase, num_samples)
             final_texts = [collapse_repeated_letters(v) for v in variants]
-            
+
+        elif source_type == "zh_phoneme_adversarial":
+            base_phrase = text_source_config.get("base_phrase") or \
+                        text_source_config.get("phrase") or \
+                        global_target_phrase
+            if not base_phrase:
+                print_error(f"Task '{task_name}' needs a 'base_phrase' for Chinese adversarial generation. Skipping.")
+                continue
+
+            min_distance = float(text_source_config.get("min_distance", 0.30))
+            print_info(f"Source: Generating {num_samples} Chinese pinyin-based adversarial texts from '{base_phrase}'.")
+            print_info(f"Using minimum phonetic distance: {min_distance}")
+
+            generator = ChinesePhonemeAdversarialGenerator(min_distance=min_distance)
+            variants = generator.generate(base_phrase, num_samples)
+            final_texts = variants
+
+        elif source_type == "ko_phoneme_adversarial":
+            base_phrase = text_source_config.get("base_phrase") or \
+                        text_source_config.get("phrase") or \
+                        global_target_phrase
+            if not base_phrase:
+                print_error(f"Task '{task_name}' needs a 'base_phrase' for Korean adversarial generation. Skipping.")
+                continue
+
+            min_distance = float(text_source_config.get("min_distance", 0.30))
+            print_info(f"Source: Generating {num_samples} Korean jamo-based adversarial texts from '{base_phrase}'.")
+            print_info(f"Using minimum phonetic distance: {min_distance}")
+
+            generator = KoreanPhonemeAdversarialGenerator(min_distance=min_distance)
+            variants = generator.generate(base_phrase, num_samples)
+            final_texts = variants
+
+        elif source_type == "yue_phoneme_adversarial":
+            base_phrase = text_source_config.get("base_phrase") or \
+                        text_source_config.get("phrase") or \
+                        global_target_phrase
+            if not base_phrase:
+                print_error(f"Task '{task_name}' needs a 'base_phrase' for Cantonese adversarial generation. Skipping.")
+                continue
+
+            min_distance = float(text_source_config.get("min_distance", 0.30))
+            print_info(f"Source: Generating {num_samples} Cantonese pinyin-based adversarial texts from '{base_phrase}'.")
+            print_info(f"Using minimum phonetic distance: {min_distance}")
+
+            generator = CantonesePhonemeAdversarialGenerator(min_distance=min_distance)
+            variants = generator.generate(base_phrase, num_samples)
+            final_texts = variants
+
+        elif source_type == "multilingual_phoneme_adversarial":
+            base_phrase = text_source_config.get("base_phrase") or \
+                        text_source_config.get("phrase") or \
+                        global_target_phrase
+            if not base_phrase:
+                print_error(f"Task '{task_name}' needs a 'base_phrase' for multilingual adversarial generation. Skipping.")
+                continue
+
+            lang = text_source_config.get("lang", "zh")
+            min_distance = float(text_source_config.get("min_distance", 0.30))
+            print_info(f"Source: Generating {num_samples} multilingual adversarial texts for '{lang}' from '{base_phrase}'.")
+            print_info(f"Using minimum phonetic distance: {min_distance}")
+
+            generator = create_generator(lang, min_distance=min_distance)
+            variants = generator.generate(base_phrase, num_samples)
+            final_texts = variants
+
         else:
             print_warning(f"Unknown text_source type: '{source_type}' in task '{task_name}'. Skipping.")
             continue

@@ -232,3 +232,4 @@ SonicWeave-v2.zip
 /3000version
 *.zip
 /trainedmodel
+test_model.py

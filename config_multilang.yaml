@@ -23,7 +23,7 @@ n_blocks: 4
 embedding_dim: 128
 dropout_prob: 0.35
 
-num_workers: 2
+num_workers: 0
 feature_gen_cpu_ratio: 1.0
 augmentation_batch_size: 256
 steps: 50000
@@ -36,10 +36,10 @@ weight_decay: 0.01
 
 batch_composition:
   # 1:2:2 → 2:1:2 ratio (more positive)
-  t: 120     # positive (40%)
-  n: 60      # adversarial TTS (20%)
+  t: 160     # positive (50%)
+  n: 60      # adversarial TTS (19%)
   hn: 10     # adversarial phoneme-hard
-  acav: 120  # background: ACAV100M (40%)
+  acav: 90   # background (28%)
 
 feature_manifest:
   targets:
@@ -51,7 +51,7 @@ feature_manifest:
   targets_val:
     t_v: "./trained_models/hi_hotel_multilang_10k/features/positive_features_val.npy"
   negatives_val:
-    bv: "openwakeword_features_ACAV100M_2000_hrs_16bit.npy"
+    bv: "./trained_models/hi_hotel_multilang_10k/features/negative_features.npy"
 
 data_generation_tasks:
   # ===== 正样本：4 语种全部输出到 data/positive/ =====

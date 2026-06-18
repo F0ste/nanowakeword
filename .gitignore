@@ -238,8 +238,14 @@ test_model.py
 /g2pW
 /g2pW
 g2pW/config.py
+<<<<<<< Updated upstream
 /trainedmodel
 >>>>>>> Stashed changes
 /testaudio
 /android-sdk
 /android-sdk
+=======
+/android-sdk
+/testaudio
+/trainedmodel
+>>>>>>> Stashed changes

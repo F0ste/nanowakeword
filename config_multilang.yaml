@@ -54,7 +54,7 @@ feature_manifest:
   targets_val:
     t_v: "./trained_models/hi_hotel_multilang_10k/features/positive_features_val.npy"
   negatives_val:
-    bv: "./trained_models/hi_hotel_multilang_10k/features/negative_features.npy"
+    bv: "openwakeword_features_ACAV100M_2000_hrs_16bit.npy"
 
 data_generation_tasks:
   # ===== 正样本：输出到 data/positive/ — Kokoro 多音色 (Ava + Aiva 各半) =====

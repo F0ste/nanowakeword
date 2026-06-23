@@ -432,6 +432,6 @@ distillation:
   student_embedding_dim: 8
 
 generate_clips: false
-transform_clips: true
+transform_clips: false
 train_model: false
-overwrite: true
+overwrite: false

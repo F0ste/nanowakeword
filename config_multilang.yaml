@@ -26,9 +26,6 @@ n_blocks: 4
 embedding_dim: 128
 dropout_prob: 0.35
 
-audio_processing:
-  clip_length_samples: 39000
-
 num_workers: 0
 feature_gen_cpu_ratio: 1.0
 augmentation_batch_size: 256

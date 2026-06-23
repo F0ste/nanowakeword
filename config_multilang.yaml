@@ -18,7 +18,7 @@ background_paths:
 rir_paths: []
 
 audio_processing:
-  clip_length_samples: 20480  # 16 frames × 1280 samples, matches ACAV100M / RACON
+  clip_length_samples: 32480  # 2.03s -> 16 embedding frames, matches ACAV100M / RACON
 
 model_type: "dnn"
 layer_size: 48

@@ -17,6 +17,9 @@ background_paths:
   - "SonicWeave-v2/part3"
 rir_paths: []
 
+audio_processing:
+  clip_length_samples: 20480  # 16 frames × 1280 samples, matches ACAV100M / RACON
+
 model_type: "dnn"
 layer_size: 48
 n_blocks: 4
@@ -54,7 +57,7 @@ feature_manifest:
   targets_val:
     t_v: "./trained_models/hi_hotel_multilang_10k/features/positive_features_val.npy"
   negatives_val:
-    bv: "openwakeword_features_ACAV100M_2000_hrs_16bit.npy"
+    bv: "RACON_11h_v1.npy"
 
 data_generation_tasks:
   # ===== 正样本：输出到 data/positive/ — Kokoro 多音色 (Ava + Aiva 各半) =====
@@ -432,6 +435,6 @@ distillation:
   student_embedding_dim: 8
 
 generate_clips: false
-transform_clips: false
-train_model: true
-overwrite: false
+transform_clips: true
+train_model: false
+overwrite: true

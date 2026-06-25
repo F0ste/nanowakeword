@@ -26,9 +26,9 @@ from nanowakeword import NanoInterpreter
 # ============================================================================
 # 配置区 — 根据实际路径修改
 # ============================================================================
-MODEL_PATH = "trainedmodel/new212/model/hi_hotel_multilang_10k.onnx"
+MODEL_PATH = "trained_models/hi_hotel_multilang_10k/model/hi_hotel_multilang_10k.onnx"
 GATE_THRESHOLD = 0.3    # 门控阈值：lite 置信度超过此值才触发验证模型
-DETECT_THRESHOLD = 0.4  # 检测阈值：验证置信度超过此值才视为真正的唤醒
+DETECT_THRESHOLD = 0.9  # 检测阈值：验证置信度超过此值才视为真正的唤醒
 
 # ============================================================================
 # 加载双塔模型 (cascade=True 启用级联模式)

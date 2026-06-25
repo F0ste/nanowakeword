@@ -54,7 +54,7 @@ feature_manifest:
   targets_val:
     t_v: "./trained_models/hi_hotel_multilang_10k/features/positive_features_val.npy"
   negatives_val:
-    bv: "RACON_11h_v1.npy"
+    bv: "./trained_models/hi_hotel_multilang_10k/features/negative_features.npy"
 
 data_generation_tasks:
   # ===== 正样本：输出到 data/positive/ — Kokoro 多音色 (Ava + Aiva 各半) =====
@@ -400,26 +400,26 @@ data_generation_tasks:
       speed: [1.5, 2.0, 2.5]
 
 feature_generation_manifest:
-  pos_feature:
-    input_audio_dirs: ["./data/positive"]
-    output_filename: "positive_features.npy"
-    use_background_noise: true
-    augmentation_rounds: 10
-  pos_val_feature:
-    input_audio_dirs: ["./data/positive_val"]
-    output_filename: "positive_features_val.npy"
-    use_background_noise: true
-    augmentation_rounds: 1
+  # pos_feature:
+  #   input_audio_dirs: ["./data/positive"]
+  #   output_filename: "positive_features.npy"
+  #   use_background_noise: true
+  #   augmentation_rounds: 10
+  # pos_val_feature:
+  #   input_audio_dirs: ["./data/positive_val"]
+  #   output_filename: "positive_features_val.npy"
+  #   use_background_noise: true
+  #   augmentation_rounds: 1
   neg_feature_1:
     input_audio_dirs: ["./data/negative"]
     output_filename: "negative_features.npy"
     use_background_noise: true
     augmentation_rounds: 10
-  neg_feature_2:
-    input_audio_dirs: ["./data/negative_phoneme"]
-    output_filename: "hard_negative_features.npy"
-    use_background_noise: true
-    augmentation_rounds: 1
+  # neg_feature_2:
+  #   input_audio_dirs: ["./data/negative_phoneme"]
+  #   output_filename: "hard_negative_features.npy"
+  #   use_background_noise: true
+  #   augmentation_rounds: 1
 
 distillation:
   enabled: true
